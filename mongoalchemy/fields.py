@@ -121,7 +121,7 @@ class FieldMeta(type):
         # Create Class
         return type.__new__(mcs, classname, bases, class_dict)
 
-class Field(object):
+class Field(object, metaclass=FieldMeta):
     auto = False
     
     #: If this kind of field can have sub-fields, this attribute should be True
@@ -131,8 +131,6 @@ class Field(object):
     has_autoload = False
 
     no_real_attributes = False  # used for free-form queries.  
-    
-    __metaclass__ = FieldMeta
     
     valid_modifiers = SCALAR_MODIFIERS
     
@@ -360,12 +358,12 @@ class StringField(PrimitiveField):
         '''
         self.max = max_length
         self.min = min_length
-        super(StringField, self).__init__(constructor=unicode, **kwargs)
+        super(StringField, self).__init__(constructor=str, **kwargs)
         
     def validate_wrap(self, value):
         ''' Validates the type and length of ``value`` '''
-        if not isinstance(value, basestring):
-            self._fail_validation_type(value, basestring)
+        if not isinstance(value, str):
+            self._fail_validation_type(value, str)
         if self.max != None and len(value) > self.max:
             self._fail_validation(value, 'Value too long')
         if self.min != None and len(value) < self.min:
@@ -522,7 +520,7 @@ class TupleField(Field):
         if not isinstance(value, list) and not isinstance(value, tuple):
             self._fail_validation_type(value, tuple, list)
         
-        for field, value in itertools.izip(self.types, list(value)):
+        for field, value in zip(self.types, list(value)):
             field.validate_wrap(value)
     
     def validate_unwrap(self, value):
@@ -532,7 +530,7 @@ class TupleField(Field):
         if not isinstance(value, list) and not isinstance(value, tuple):
             self._fail_validation_type(value, tuple, list)
         
-        for field, value in itertools.izip(self.types, value):
+        for field, value in zip(self.types, value):
             field.validate_unwrap(value)
     
     def wrap(self, value):
@@ -542,7 +540,7 @@ class TupleField(Field):
         '''
         self.validate_wrap(value)
         ret = []
-        for field, value in itertools.izip(self.types, value):
+        for field, value in zip(self.types, value):
             ret.append(field.wrap(value))
         return ret
     
@@ -553,7 +551,7 @@ class TupleField(Field):
         '''
         self.validate_unwrap(value)
         ret = []
-        for field, value in itertools.izip(self.types, value):
+        for field, value in zip(self.types, value):
             ret.append(field.unwrap(value))
         return tuple(ret)
 
@@ -809,7 +807,7 @@ class ObjectIdField(Field):
     def validate_wrap(self, value):
         ''' Checks that ``value`` is a pymongo ``ObjectId`` or a string 
             representation of one'''
-        if not isinstance(value, ObjectId) and not isinstance(value, basestring):
+        if not isinstance(value, ObjectId) and not isinstance(value, str):
             self._fail_validation_type(value, ObjectId)
         if isinstance(value, ObjectId):
             return
@@ -820,7 +818,7 @@ class ObjectIdField(Field):
         ''' Validates that ``value`` is an ObjectId (or hex representation 
             of one), then returns it '''
         self.validate_wrap(value)
-        if isinstance(value, basestring):
+        if isinstance(value, str):
             return ObjectId(value)
         return value
     
@@ -850,7 +848,7 @@ class DictField(Field):
         self.value_type._set_parent(parent)
     
     def _validate_key_wrap(self, key):
-        if not isinstance(key, basestring):
+        if not isinstance(key, str):
             self._fail_validation(key, 'DictField keys must be of type basestring')
         if  '.' in key or '$' in key:
             self._fail_validation(key, 'DictField keys cannot contains "." or "$".  You may want a KVField instead')
@@ -865,11 +863,11 @@ class DictField(Field):
         '''
         if not isinstance(value, dict):
             self._fail_validation_type(value, dict)
-        for k, v in value.iteritems():
+        for k, v in value.items():
             self._validate_key_unwrap(k)
             try:
                 self.value_type.validate_unwrap(v)
-            except BadValueException, bve:
+            except BadValueException as bve:
                 self._fail_validation(value, 'Bad value for key %s' % k, cause=bve)
         
     def validate_wrap(self, value):
@@ -878,11 +876,11 @@ class DictField(Field):
         '''
         if not isinstance(value, dict):
             self._fail_validation_type(value, dict)
-        for k, v in value.iteritems():
+        for k, v in value.items():
             self._validate_key_wrap(k)
             try:
                 self.value_type.validate_wrap(v)
-            except BadValueException, bve:
+            except BadValueException as bve:
                 self._fail_validation(value, 'Bad value for key %s' % k, cause=bve)
     
     def wrap(self, value):
@@ -891,7 +889,7 @@ class DictField(Field):
         '''
         self.validate_wrap(value)
         ret = {}
-        for k, v in value.iteritems():
+        for k, v in value.items():
             ret[k] = self.value_type.wrap(v)
         return ret
     
@@ -901,7 +899,7 @@ class DictField(Field):
         '''
         self.validate_unwrap(value)
         ret = {}
-        for k, v in value.iteritems():
+        for k, v in value.items():
             ret[k] = self.value_type.unwrap(v)
         return ret
 
@@ -944,7 +942,7 @@ class KVField(DictField):
     def _validate_key_wrap(self, key):
         try:
             self.key_type.validate_wrap(key)
-        except BadValueException, bve:
+        except BadValueException as bve:
             self._fail_validation(key, 'Bad value for key', cause=bve)
     
     def validate_unwrap(self, value):
@@ -965,12 +963,12 @@ class KVField(DictField):
                 self._fail_validation(value, 'Value had None for a key')
             try:
                 self.key_type.validate_unwrap(k)
-            except BadValueException, bve:
+            except BadValueException as bve:
                 self._fail_validation(value, 'Bad value for KVField key %s' % k, cause=bve)
             
             try:
                 self.value_type.validate_unwrap(v)
-            except BadValueException, bve:
+            except BadValueException as bve:
                 self._fail_validation(value, 'Bad value for KFVield value %s' % k, cause=bve)
         return True
     
@@ -982,7 +980,7 @@ class KVField(DictField):
         '''
         self.validate_wrap(value)
         ret = []
-        for k, v in value.iteritems():
+        for k, v in value.items():
             k = self.key_type.wrap(k)
             v = self.value_type.wrap(v)
             ret.append( { 'k' : k, 'v' : v })
@@ -1136,7 +1134,7 @@ class RefField(Field):
             return True
         try:
             self.type.validate_unwrap(value)
-        except BadValueException, bve:
+        except BadValueException as bve:
             self._fail_validation(value, 'RefField invalid', cause=bve)
 
 
@@ -1225,7 +1223,7 @@ class ComputedField(Field):
         value = self.fun(args)
         try:
             self.computed_type.validate_wrap(value)
-        except BadValueException, bve:
+        except BadValueException as bve:
             self._fail_validation(value, 'Computed Function return a bad value', cause=bve)
         return value
     
@@ -1239,14 +1237,14 @@ class ComputedField(Field):
         ''' Check that ``value`` is valid for unwrapping with ``ComputedField.computed_type``'''
         try:
             self.computed_type.validate_wrap(value)
-        except BadValueException, bve:
+        except BadValueException as bve:
             self._fail_validation(value, 'Bad value for computed field', cause=bve)
     
     def validate_unwrap(self, value):
         ''' Check that ``value`` is valid for unwrapping with ``ComputedField.computed_type``'''
         try:
             self.computed_type.validate_unwrap(value)
-        except BadValueException, bve:
+        except BadValueException as bve:
             self._fail_validation(value, 'Bad value for computed field', cause=bve)
     
     def wrap(self, value):

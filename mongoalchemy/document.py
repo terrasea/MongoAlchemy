@@ -60,7 +60,7 @@ class DocumentMeta(type):
         
         # 1. Set up links between fields and the document class
         new_id = False
-        for name, value in class_dict.iteritems():
+        for name, value in class_dict.items():
             if not isinstance(value, Field):
                 continue
             if value.is_id and name != 'mongo_id':
@@ -99,9 +99,7 @@ class DocumentMeta(type):
 
         return new_class
 
-class Document(object):
-    __metaclass__ = DocumentMeta
-    
+class Document(object, metaclass=DocumentMeta):
     mongo_id = ObjectIdField(required=False, db_field='_id', on_update='ignore')
     ''' Default field for the mongo object ID (``_id`` in the database). This field
         is automatically set on objects when they are saved into the database.
@@ -173,7 +171,7 @@ class Document(object):
         cls = self.__class__
                 
         fields = self.get_fields()
-        for name, field in fields.iteritems():
+        for name, field in fields.items():
             if self.partial and field.db_field not in self.retrieved_fields:
                 continue
             
@@ -239,7 +237,7 @@ class Document(object):
                 an upsert where all required fields must always be sent.
         '''
         update_expression = {}
-        for name, field in self.get_fields().iteritems():
+        for name, field in self.get_fields().items():
             if field.db_field == '_id':
                 continue
             dirty_ops = field.dirty_ops(self)
@@ -248,9 +246,9 @@ class Document(object):
                 if not dirty_ops:
                     raise MissingValueException(name)
             
-            for op, values in dirty_ops.iteritems():
+            for op, values in dirty_ops.items():
                 update_expression.setdefault(op, {})
-                for key, value in values.iteritems():
+                for key, value in values.items():
                     update_expression[op][key] = value
 
         if self.config_extra_fields == 'ignore':
@@ -354,7 +352,7 @@ class Document(object):
             be saved into a mongo database.  This is done by using the ``wrap()``
             methods of the underlying fields to set values.'''
         res = {}
-        for k, v in self.__extra_fields.iteritems():
+        for k, v in self.__extra_fields.items():
             res[k] = v
         cls = self.__class__
         for name in dir(cls):
@@ -377,7 +375,7 @@ class Document(object):
             deserialization'''
         try:
             cls.unwrap(obj, fields=fields)
-        except Exception, e:
+        except Exception as e:
             raise BadValueException('Document', obj, 'Exception validating document', cause=e)
     
     @classmethod
@@ -403,12 +401,12 @@ class Document(object):
 
         # Get reverse name mapping
         name_reverse = {}
-        for name, field in cls.get_fields().iteritems():
+        for name, field in cls.get_fields().items():
             name_reverse[field.db_field] = name
         
         # Unwrap
         params = {}
-        for k, v in obj.iteritems():
+        for k, v in obj.items():
             k = name_reverse.get(k, k)
             if not hasattr(cls, k) and cls.config_extra_fields:
                 params[str(k)] = v
@@ -490,7 +488,7 @@ class DocumentField(Field):
     
     @property
     def type(self):
-        if not isinstance(self.__type, basestring) and issubclass(self.__type, Document):
+        if not isinstance(self.__type, str) and issubclass(self.__type, Document):
             return self.__type
         if self.parent.config_namespace == None:
             raise BadFieldSpecification('Document namespace is None.  Strings are not allowed for DocumentFields')
@@ -513,9 +511,9 @@ class DocumentField(Field):
         ops = document.get_dirty_ops()
         
         ret = {}
-        for op, values in ops.iteritems():
+        for op, values in ops.items():
             ret[op] = {}
-            for key, value in values.iteritems():
+            for key, value in values.items():
                 name = '%s.%s' % (self._name, key)
                 ret[op][name] = value
         return ret
@@ -539,7 +537,7 @@ class DocumentField(Field):
         '''
         try:
             self.validate_unwrap(value, fields=fields)
-        except BadValueException, bve:
+        except BadValueException as bve:
             return False
         return True
     
@@ -569,7 +567,7 @@ class DocumentField(Field):
         '''
         try:
             self.type.validate_unwrap(value, fields=fields)
-        except BadValueException, bve:
+        except BadValueException as bve:
             self._fail_validation(value, 'Bad value for DocumentField field', cause=bve)
 
 class BadIndexException(Exception):
